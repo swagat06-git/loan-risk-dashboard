@@ -1,8 +1,6 @@
 """
 Loan Default & Credit Risk Dashboard
 
-Run with:
-    streamlit run app.py
 """
 import pandas as pd
 import plotly.express as px
@@ -27,9 +25,9 @@ def get_model():
 df = get_data()
 model = get_model()
 
-st.title("💳 Loan Default & Credit Risk Dashboard")
+st.title(" Loan Default & Credit Risk Dashboard")
 
-tab1, tab2 = st.tabs(["📊 Portfolio Overview", "🔍 Applicant Risk Check"])
+tab1, tab2 = st.tabs([" Portfolio Overview", " Applicant Risk Check"])
 
 # ---------------------------------------------------------------- Overview
 with tab1:
