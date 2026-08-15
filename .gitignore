@@ -1,0 +1,5 @@
+data/lending_club_full.csv
+__pycache__/
+venv/
+
+
