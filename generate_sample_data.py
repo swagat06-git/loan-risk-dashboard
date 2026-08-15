@@ -1,10 +1,10 @@
 """
 Generates a synthetic loan dataset shaped like the real LendingClub export,
-so you can run the whole pipeline immediately without downloading anything.
+so we can run the whole pipeline immediately without downloading anything.
 
-Swap this out for real data once you're ready to make this portfolio-worthy:
-    https://www.kaggle.com/datasets/wordsforthewise/lending-club
-Just point data_prep.load_data() at the real CSV instead.
+We will swap this out for real data once we're ready to make this portfolio-worthy:
+
+We will just point at the real CSV instead.
 
 Usage:
     python generate_sample_data.py
@@ -12,7 +12,7 @@ Usage:
 import numpy as np
 import pandas as pd
 
-np.random.seed(42)
+np.random.seed(42)  #for reproducibility
 
 
 def generate_sample_loans(n: int = 5000) -> pd.DataFrame:
