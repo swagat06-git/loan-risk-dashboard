@@ -1,75 +1,51 @@
 # Loan Default & Credit Risk Dashboard
 
-A deployable analyst tool: explore portfolio-level default trends and score
-individual loan applicants for risk. Built with pandas, scikit-learn, and
-Streamlit.
+I built this to figure out which loans are actually risky, using LendingClub's public dataset of ~2 million real loans issued between 2007 and 2018. It's not a notebook full of charts — it's a live tool: a portfolio-level view of where default risk concentrates, plus a form where you can plug in an applicant's numbers and get a risk score back.
 
-## What this demonstrates
-- End-to-end pipeline: raw data -> cleaning -> feature engineering -> model -> dashboard
-- Business-facing segmentation (default rate by grade, region, purpose, income band)
-- An interpretable model (logistic regression) with an option to compare against random forest
-- A deployed, interactive tool rather than a static notebook
+**Live app:** https://loan-risk-dashboard-sp.streamlit.app
 
-## Project structure
-```
-loan-risk-dashboard/
-├── app.py                   # Streamlit dashboard (run this)
-├── train_model.py           # Trains and saves the model
-├── generate_sample_data.py  # Creates synthetic data to run immediately
-├── requirements.txt
-├── src/
-│   ├── data_prep.py         # load_data, clean_data, add_target
-│   ├── features.py          # engineer_features, feature lists
-│   └── model.py             # build_pipeline, train_and_evaluate, save/load
-├── data/                    # sample_loans.csv, processed_loans.csv
-└── models/                  # risk_model.joblib (saved after training)
-```
+## Why this project
 
-## Quickstart (with synthetic data)
+I wanted something closer to what a data analyst actually does day to day — not just fitting a model and reporting an accuracy number, but asking "so what should the business actually do with this." That meant spending more time on the segmentation and the dashboard than on squeezing out an extra point of AUC.
+
+## What's in it
+
+- **Portfolio Overview** — default rate broken down by loan grade, region, and purpose, plus a DTI-vs-interest-rate scatter to see where risk clusters
+- **Applicant Risk Check** — enter an applicant's details, get a predicted default probability and a low/moderate/high flag
+- A logistic regression model underneath (chosen over random forest deliberately — more on that below)
+
+## Findings
+
+- Default rate climbs steadily from grade A (~5-6%) up to F/G (~35-40%+) — confirms LendingClub's own grading system is doing real work as a risk signal.
+- Region barely moves the needle — Midwest, Northeast, South, West are all clustered around 15-20%, nowhere near the spread you see across grades. Worth saying explicitly: grade matters far more than geography.
+
+## A decision I made on purpose: logistic regression over random forest
+
+I tried both. Random forest edged it out slightly on raw AUC, but I went with logistic regression for the deployed version anyway — the coefficients tell you *why* a given loan looks risky (high DTI, low income relative to loan size, etc.), which matters more for a tool meant to be used by a person making a lending decision than a marginal accuracy gain would. If you're the type to disagree with that tradeoff, the random forest path is still in `train_model.py --model random_forest` — worth running both and forming your own opinion on it.
+
+## Model performance
+
+Logistic regression, trained on ~1.3M resolved loans (Fully Paid, Charged Off, or Default — I excluded loans still "Current" or "In Grace Period," since we don't actually know how those end yet):
+
+- AUC: 0.704
+- Recall on defaults: 0.62 (catches ~6 in 10 actual defaults)
+- Precision on defaults: 0.32 (roughly 1 in 3 flagged loans actually defaults)
+
+That precision number is the honest tradeoff here — `class_weight="balanced"` pushes the model to catch more real defaults, at the cost of more false alarms on safe borrowers. For a lending business, that's usually the right side to err on, but it's worth knowing you're trading one kind of mistake for another, not eliminating mistakes.
+
+## Running it locally
+
 ```bash
 pip install -r requirements.txt
-python generate_sample_data.py     # creates data/sample_loans.csv
-python train_model.py              # trains model, writes models/ and processed data
-streamlit run app.py               # opens the dashboard at localhost:8501
+python generate_sample_data.py   # optional: quick synthetic data to test with
+python train_model.py --data data/your_data.csv
+streamlit run app.py
 ```
 
-## Using the real LendingClub data (recommended before you ship this)
-The synthetic data is just a stand-in so the pipeline runs on day one — for
-your actual portfolio project, swap it for real data:
+The real dataset (`accepted_2007_to_2018Q4.csv` from [LendingClub on Kaggle](https://www.kaggle.com/datasets/wordsforthewise/lending-club)) isn't included in this repo — it's too big for GitHub. Download it separately and point `--data` at it.
 
-1. Download the LendingClub loan data, e.g. from
-   https://www.kaggle.com/datasets/wordsforthewise/lending-club
-2. Save it as `data/sample_loans.csv` (or point `--data` at wherever you put it):
-   ```bash
-   python train_model.py --data data/lending_club_2018.csv
-   ```
-3. Re-run `streamlit run app.py` — the dashboard reads whatever `train_model.py`
-   last processed.
+## What I'd do with more time
 
-Note: the real file has different/extra columns than the synthetic generator.
-Check `src/data_prep.py` and `src/features.py` and adjust column names as needed —
-working through that mismatch is itself good practice for a real analyst project.
-
-## Trying the random forest model
-```bash
-python train_model.py --model random_forest
-```
-Compare the printed AUC against the logistic regression baseline — this is a
-good thing to mention in your case-study writeup (interpretability vs. performance
-tradeoff).
-
-## Deploying
-The fastest free option given this stack is **Streamlit Community Cloud**:
-1. Push this folder to a public GitHub repo (include `data/processed_loans.csv`
-   and `models/risk_model.joblib` after training, or add a build step that runs
-   `generate_sample_data.py` + `train_model.py` on startup).
-2. Go to https://share.streamlit.io, connect your GitHub repo, point it at `app.py`.
-3. It builds automatically from `requirements.txt`.
-
-## Next steps to strengthen this for applications
-- Swap in the real LendingClub dataset (see above)
-- Add a SQL layer: load the data into SQLite/Postgres and query it instead of
-  reading a CSV directly — analyst interviews test SQL heavily
-- Add a short case-study write-up: the business question, what you found,
-  what you'd recommend a lending team do differently
-- Add confidence/calibration info to the risk score, not just a raw probability
+- Pull in `verification_status` and `earliest_cr_line` (credit history length) as features — I left these out to keep the first version manageable, but they're plausible signal
+- Calibrate the predicted probabilities properly (right now they're raw model outputs, not adjusted to match real-world default frequencies)
+- Swap the CSV read for a proper SQL layer — the groupby aggregations in the dashboard would translate directly to `GROUP BY` queries
